@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>House Price Prediction</title>
+  <style>
+    :root{
+      --glass-bg: rgba(255,255,255,0.9);
+      --accent: #27ae60;
+      --accent-hover:#219150;
+      --heading:#2c3e50;
+      --result:#2980b9;
+    }
+    /* One body rule: gradient overlay + image (Flask static path below) */
+    body{
+      margin:0;
+      font-family: Arial, sans-serif;
+      min-height:100vh;
+      background:
+        linear-gradient(135deg, rgba(109,213,250,0.7), rgba(41,128,185,0.7)),
+        url("{{ url_for('static', filename='images/malibu-4k.jpg') }}") center/cover fixed no-repeat;
+      background-size: cover;
+    }
+    .container{
+      max-width: 700px;
+      margin: 60px auto;
+      background: var(--glass-bg);
+      padding: 28px;
+      border-radius: 16px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.25);
+      backdrop-filter: blur(10px);
+      animation: floatIn 0.6s ease both;
+    }
+    @keyframes floatIn{
+      from{ opacity:0; transform:translateY(10px) }
+      to{ opacity:1; transform:translateY(0) }
+    }
+    h1{
+      text-align:center;
+      color: var(--heading);
+      margin: 0 0 18px;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap:12px;
+    }
+    .field{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    label{ font-size:14px; color:#1f2d3d; }
+    input, select, button{
+      width:100%;
+      padding:12px;
+      border-radius:10px;
+      border:1px solid #d0d5dd;
+      font-size:15px;
+      outline:none;
+      box-sizing:border-box;
+      background:#fff;
+    }
+    input[readonly]{
+      background:#f8fafc;
+      color:#475569;
+    }
+    .row{
+      display:flex;
+      gap:12px;
+      margin-top:12px;
+    }
+    .row > *{ flex:1 }
+    button{
+      background: var(--accent);
+      color:#fff;
+      border:none;
+      cursor:pointer;
+      font-weight:700;
+      transition: transform .15s ease, background .2s ease;
+    }
+    button:hover{ background: var(--accent-hover); transform: translateY(-1px); }
+    .result{
+      text-align:center;
+      font-size:22px;
+      margin-top: 20px;
+      color: var(--result);
+      font-weight: bold;
+    }
+    body {
+    background-image: url('{{ url_for("static", filename="images/malibu-4k.jpg") }}');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+}
+        
+    
+    @media (max-width: 640px){
+      .grid{ grid-template-columns: 1fr; }
+      .row{ flex-direction:column; }
+      .container{ margin: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>California House Price Prediction</h1>
+
+    <form method="POST" action="/predict" id="predict-form">
+
+      <div class="grid">
+        <!-- Base numeric inputs -->
+        <div class="field">
+          <label>Longitude</label>
+          <input type="number" step="any" name="longitude" required>
+        </div>
+        <div class="field">
+          <label>Latitude</label>
+          <input type="number" step="any" name="latitude" required>
+        </div>
+        <div class="field">
+          <label>Housing Median Age</label>
+          <input type="number" step="any" name="housing_median_age" required>
+        </div>
+        <div class="field">
+          <label>Total Rooms</label>
+          <input type="number" step="any" name="total_rooms" required>
+        </div>
+        <div class="field">
+          <label>Total Bedrooms</label>
+          <input type="number" step="any" name="total_bedrooms" required>
+        </div>
+        <div class="field">
+          <label>Population</label>
+          <input type="number" step="any" name="population" required>
+        </div>
+        <div class="field">
+          <label>Households</label>
+          <input type="number" step="any" name="households" required>
+        </div>
+        <div class="field">
+          <label>Median Income</label>
+          <input type="number" step="any" name="median_income" required>
+        </div>
+
+        <!-- Categorical -->
+        <div class="field" style="grid-column: span 2;">
+          <label>Ocean Proximity</label>
+          <select name="ocean_proximity" required>
+            <option value="<1H OCEAN">&lt;1H OCEAN</option>
+            <option value="INLAND">INLAND</option>
+            <option value="NEAR OCEAN">NEAR OCEAN</option>
+            <option value="NEAR BAY">NEAR BAY</option>
+            <option value="ISLAND">ISLAND</option>
+          </select>
+        </div>
+
+        <!-- Engineered features (read-only, auto-calculated) -->
+        <div class="field">
+          <label>Rooms per Household</label>
+          <input type="number" step="any" name="rooms_per_household" readonly>
+        </div>
+        <div class="field">
+          <label>Bedrooms per Room</label>
+          <input type="number" step="any" name="bedrooms_per_room" readonly>
+        </div>
+        <div class="field" style="grid-column: span 2;">
+          <label>Population per Household</label>
+          <input type="number" step="any" name="population_per_household" readonly>
+        </div>
+      </div>
+
+      <div class="row">
+        <button type="submit">Predict Price</button>
+      </div>
+    </form>
+
+    {% if prediction_text %}
+        <div class="result">{{ prediction_text }}</div>
+    {% endif %}
+
+  </div>
+
+  <script>
+    // Auto-calc engineered features on input
+    function num(name){
+      const v = document.querySelector(`[name="${name}"]`).value;
+      return v === "" ? NaN : parseFloat(v);
+    }
+    function set(name, value){
+      const el = document.querySelector(`[name="${name}"]`);
+      el.value = Number.isFinite(value) ? value.toFixed(4) : "";
+    }
+    function recompute(){
+      const total_rooms = num('total_rooms');
+      const households = num('households');
+      const total_bedrooms = num('total_bedrooms');
+      const population = num('population');
+
+      set('rooms_per_household', (households && households !== 0) ? (total_rooms / households) : NaN);
+      set('bedrooms_per_room', (total_rooms && total_rooms !== 0) ? (total_bedrooms / total_rooms) : NaN);
+      set('population_per_household', (households && households !== 0) ? (population / households) : NaN);
+    }
+    ['total_rooms','households','total_bedrooms','population'].forEach(n=>{
+      document.querySelector(`[name="${n}"]`).addEventListener('input', recompute);
+    });
+    window.addEventListener('DOMContentLoaded', recompute);
+  </script>
+</body>
+</html>
